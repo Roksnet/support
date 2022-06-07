@@ -1,0 +1,46 @@
+#!/bin/bash
+
+if ! [ "$(id -u)" = 0 ]; then
+   echo "$0 must be executed as root"
+   exit 1
+fi
+
+if ! [ "$1" ]; then
+    echo "Usage: $0 <destionation directory>"
+    echo "Example: $0 /tmp"
+    exit
+fi
+
+check_for_command () {
+    if ! command -v "$1" &> /dev/null
+    then
+    echo "$1 could not be found"
+    exit
+fi
+}
+
+CURRENT_TIME=$(date +%Y%m%d%H%M%S)
+DEST_DIR="$1/roksnet_diag_$CURRENT_TIME"
+DIAG_ARCH="${1}/roksnet_diag_$CURRENT_TIME.tar.gz"
+
+check_for_command systemctl
+check_for_command dpkg
+check_for_command tar
+check_for_command script
+check_for_command find
+
+mkdir -p "$DEST_DIR/logs"
+
+echo "Collecting diagnostics"
+systemctl > "$DEST_DIR/systemctl.out"
+dpkg -l > "$DEST_DIR/dpkg.out"
+ps aux > "$DEST_DIR/ps.out"
+find /var/log/xroad -regex '.*[a-z\-_]+\.log$' -exec cp -t "$DEST_DIR/logs" {} +
+
+echo "Creating tar archive from collected data"
+tar -czvf "$DIAG_ARCH" "${DEST_DIR}" &> /dev/null
+
+echo "Cleaning up"
+rm -rf "$DEST_DIR"
+
+echo "Please send $DIAG_ARCH to support@roksnet.com"
